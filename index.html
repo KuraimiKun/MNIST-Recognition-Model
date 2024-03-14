@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Number Reader</title>
+</head>
+<body>
+    <h1>Draw Phone Number and Recognize It</h1>
+    <div class="digits">
+        <strong>+</strong>
+        <canvas width="50" height="50"></canvas>
+        <strong>(</strong>
+        <canvas width="50" height="50"></canvas>
+        <canvas width="50" height="50"></canvas>
+        <canvas width="50" height="50"></canvas>
+        <strong>)</strong>
+        <canvas width="50" height="50"></canvas>
+        <canvas width="50" height="50"></canvas>
+        <canvas width="50" height="50"></canvas>
+        <strong>-</strong>
+        <canvas width="50" height="50"></canvas>
+        <canvas width="50" height="50"></canvas>
+        <canvas width="50" height="50"></canvas>
+        <canvas width="50" height="50"></canvas>
+        <div class="buttons">
+            <button id="mode">Switch to Eraser</button>
+        </div>
+    </div>
+    <div class="result">
+        <button id="recognise">Recognize</button>
+        <label for="result">Result:</label>
+        <input id="result" readonly>
+    </div>
+</body>
+<script>
+    let mode = "brush";
+    // "Switch" button handler. Switches mode from 
+    // brush to eraser and back
+    document.querySelector("#mode").addEventListener("click", () => {
+        if (mode === "brush") {
+            mode = "eraser";
+            event.target.textContent = "Switch to Brush";
+        } else {
+            mode = "brush";
+            event.target.textContent = "Switch to Eraser";
+        }
+    });
+    // Digits canvases mouse move handler.
+    // If mouse button pressed while user moves the mouse
+    // on canvas, it draws circles in cursor position.
+    // If mode="brush" then circles are black, otherwise
+    // they are white
+    document.querySelectorAll("canvas").forEach(item => {
+        ctx = item.getContext("2d");  
+        ctx.fillStyle="#FFFFFF";
+        ctx.fillRect(0,0,50,50);
+        item.addEventListener("mousemove", (event) => {
+            if (event.buttons) {
+                ctx = event.target.getContext("2d");  
+                if (mode === "brush") {
+                    ctx.fillStyle = "#000000";         
+                } else {
+                    ctx.fillStyle = "#FFFFFF";         
+                }
+                ctx.beginPath();               
+                ctx.arc(event.offsetX-1,event.offsetY-1,2,0, 2 * Math.PI);
+                ctx.fill();   
+            }
+        })
+    })
+    // "Recognise" button handler. Captures
+    // content of all digit canvases as BLOB.
+    // Construct files from these blobs and
+    // posts them to backend as files
+    document.querySelector("#recognise").addEventListener("click", async() => {
+        const data = new FormData();
+        const canvases = document.querySelectorAll("canvas");
+        const getPng = (canvas) => {
+            return new Promise(resolve => {
+                canvas.toBlob(png => {
+                    resolve(png)
+                })
+            })
+        }
+        let index = 0
+        for (let canvas of canvases) {
+            const png = await getPng(canvas);
+            data.append((++index)+".png",new File([png],index+".png"));
+        }
+        const response = await fetch("http://127.0.0.1:8080/api/recognize", {
+            body: data,
+            method: "POST"
+        })
+        document.querySelector("#result").value = await response.text();
+    })
+
+</script>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        margin: 0;
+        padding: 20px;
+    }
+    h1 {
+        color: #333;
+        margin-bottom: 20px;
+    }
+    .digits {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .digits strong {
+        font-size: 24px;
+        margin: 0 5px;
+    }
+    canvas {
+        border: 1px solid #999;
+        margin-right: 5px;
+        cursor: crosshair;
+    }
+    .buttons {
+        margin-top: 10px;
+    }
+    button {
+        padding: 8px 12px;
+        border: none;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    .result {
+        display: flex;
+        align-items: center;
+    }
+    label {
+        margin-right: 10px;
+    }
+    input {
+        padding: 8px;
+        border: 1px solid #999;
+        border-radius: 4px;
+        width: 200px;
+    }
+</style>
+</html>
